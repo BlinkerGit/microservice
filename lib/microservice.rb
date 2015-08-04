@@ -15,7 +15,7 @@ end
 ActiveSupport.encode_big_decimal_as_string = false
 ENVied.require
 
-Dir.glob( "#{File.dirname(__FILE__)}/lib/#{File.basename(__FILE__,'.rb')}/*.rb" ){ |lib| require lib }
+Dir.glob( "#{File.dirname(__FILE__)}/#{File.basename(__FILE__,'.rb')}/*.rb" ){ |lib| require lib }
 
 
 # Microservice.build({
