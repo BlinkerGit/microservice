@@ -8,6 +8,7 @@ module Microservice
     attr_accessor :auth        # :url_token, :url_auth, :basic, :none
     attr_accessor :wrap        # true, false
     attr_accessor :mode        # :rest (:soap not yet implemented)
+    attr_accessor :source      # just a name
 
     attr_accessor :base_url
     attr_accessor :last
@@ -21,50 +22,51 @@ module Microservice
     attr_accessor :password
 
     def initialize( **options )
-      base_url = options[ :url        ].to_s
-      auth     = options[ :auth       ].try(:to_sym) || :none
-      encoding = options[ :encoding   ].try(:to_sym) || :none
-      mode     = options[ :mode       ].try(:to_sym) || :rest
-      last     = masked_hash( :response )
-      wrap     = !!options[ :wrap_errors  ]
+      @base_url = options[ :url        ].to_s
+      @source   = options[ :source     ].try(:to_s)   || ''
+      @auth     = options[ :auth       ].try(:to_sym) || :none
+      @encoding = options[ :encoding   ].try(:to_sym) || :none
+      @mode     = options[ :mode       ].try(:to_sym) || :rest
+      @last     = {}
+      @wrap     = !!options[ :wrap_errors  ]
       if url_auth? || basic_auth?
-        username   = options[ :username   ] || ''
-        password   = options[ :password   ] || ''
+        @username   = options[ :username   ] || ''
+        @password   = options[ :password   ] || ''
       elsif token_auth?
-        auth_key   = options[ :auth_key   ] || 'auth'
-        auth_token = options[ :auth_token ] || ''
+        @auth_key   = options[ :auth_key   ] || 'auth'
+        @auth_token = options[ :auth_token ] || ''
       end
     end
 
     (VERBS_WITH_PARAMS + VERBS_WITHOUT_PARAMS).each do |v|
-      define_method v do |params = {}, headers = {}|
-        format( fetch( v, params, headers ) )
+      define_method v do |args = {}, headers = {}|
+        format( fetch( v, args, headers ) )
       end
     end
 
     private
 
-    def fetch( method, params = {}, headers = {} )
-      last[ String === params ? :body : :params ] = params
-      last[ :url      ] = assemble_url( ( method == :get && Hash === params ) ? params : {} )
+    def fetch( method, args = {}, headers = {} )
+      last[ String === args ? :body : :params ] = args
+      last[ :url      ] = assemble_url( ( method == :get && Hash === args ) ? args : {} )
       last[ :headers  ] = assemble_headers( headers )
       last[ :response ] = begin
         case method
-        when *VERBS_WITH_PARAMS    then RestClient.send( method, last[:url], params, last[:headers] )
-        when *VERBS_WITHOUT_PARAMS then RestClient.send( method, last[:url],         last[:headers] )
+        when *VERBS_WITH_PARAMS    then ::RestClient.send( method, last[:url], args, last[:headers] )
+        when *VERBS_WITHOUT_PARAMS then ::RestClient.send( method, last[:url],       last[:headers] )
         else nil
         end
-      rescue RestClient::Exception => e
+      rescue ::RestClient::Exception => e
         e
       end
-      last[ :code     ] = last[ :response ].try( RestClient::Exception === last[ :response ] ? :http_code : :code )
+      last[ :code     ] = last[ :response ].try( ::RestClient::Exception === last[ :response ] ? :http_code : :code )
       last[ :response ]
     end
 
-    def assemble_url( params = {} )
+    def assemble_url( args = {} )
       result = base_url.dup
-      params = params.merge({ auth_key => auth_token }) if token_auth?
-      result = "#{result}#{result.include?('?') ? '&' : '?'}#{URI.encode_www_form(params)}" if params.present?
+      args   = args.merge({ auth_key => auth_token }) if token_auth?
+      result = "#{result}#{result.include?('?') ? '&' : '?'}#{URI.encode_www_form(args)}" if args.present?
       result.insert( result.index('://')+3, "#{ERB::Util.url_encode username}:#{ERB::Util.url_encode password}@" ) if url_auth?
       result
     end
@@ -76,7 +78,7 @@ module Microservice
     end
 
     def format( response )
-      return response if !response || response.is_a? RestClient::Exception
+      return response if !response || response.is_a?( ::RestClient::Exception )
       case encoding
       when :json then JSON.parse(   response ).tap{ |r| symbolize_keys_deep!( r ) }
       when :xml  then Nokogiri.XML( response ).tap{ |r| symbolize_keys_deep!( r ) }
@@ -108,19 +110,6 @@ module Microservice
 
     def basic_auth?
       auth == :basic
-    end
-
-    def masked_hash( mask )
-      {}.tap do |l|
-        class << l
-          def inspect
-            except( mask ).inspect
-          end
-          def to_s
-            except( mask ).to_s
-          end
-        end
-      end
     end
 
   end

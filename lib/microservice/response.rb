@@ -6,26 +6,32 @@ module Microservice
     attr_reader   :last
     attr_reader   :source
     attr_reader   :status
+    attr_reader   :params
     attr_accessor :payload
 
-    def initialize( source, agent )
-      @source  = source
-      @agent   = agent
+    def initialize( agent, params )
       @error   = nil
       @last    = nil
       @status  = nil
       @payload = {}
+      @agent   = agent
+      @source  = agent.source
+      @params  = with_indifferent_access( params )
     end
 
     (Agent::VERBS_WITH_PARAMS + Agent::VERBS_WITHOUT_PARAMS).each do |v|
-      define_method v do |params = {}, headers = {}, &block|
+      define_method v do |args = {}, headers = {}, &block|
         r = with_error_handling do
-          @agent.send v, params, headers
+          @agent.send v, args, headers
         end
         @last, @status = @agent.last, @agent.last[:code]
         self.instance_exec( r, &block ) unless @error
         self.to_json
       end
+    end
+
+    def set_error( **options )
+      @error = { class: nil, message: nil, backtrace: nil }.merge( options )
     end
 
     def to_json
@@ -43,12 +49,23 @@ module Microservice
       yield
     rescue => err
       raise err unless @agent.wrap
-      @error = {
-        class:     err.class.to_s,
-        message:   err.is_a?( StandardError ) ? err.message : err.to_s,
-        backtrace: err.respond_to?( :backtrace ) ? err.backtrace : nil,
-      }
+      message   = err.is_a?( StandardError ) ? err.message : err.to_s
+      backtrace = err.respond_to?( :backtrace ) ? err.backtrace : nil
+      set_error( class: err.class.to_s, message: message , backtrace: backtrace )
       err
+    end
+
+    def with_indifferent_access( hash )
+      hash.dup.tap do |p|
+        class << p
+          def [](k)
+            super( k.to_s )
+          end
+          def []=(k,v)
+            super( k.to_s, v )
+          end
+        end
+      end
     end
 
   end
