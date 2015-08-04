@@ -8,6 +8,8 @@ module Microservice
   class << self
     def define( name, **options, &block )
       Microservice::Dsl.new( name, options ).instance_eval( &block )
+    end
+    def start!
       Microservice::Server.run!
     end
   end
