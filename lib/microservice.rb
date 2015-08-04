@@ -1,15 +1,16 @@
-require 'sinatra' unless defined? Sinatra
+require 'sinatra/base' unless defined? Sinatra
 require 'rest_client'
 require 'activesupport/json_encoder'
 require 'nokogiri'
 require 'envied'
 
-configure{ set :server, :puma }
-
 module Microservice
   class << self
     def build( name, **options, &block )
       Microservice::Dsl.new( name, options ).instance_eval( &block )
+    end
+    def start!
+      Microservice::Server.run!
     end
   end
 end

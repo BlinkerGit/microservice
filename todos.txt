@@ -1,0 +1,2 @@
+Work on logging
+Write specs
