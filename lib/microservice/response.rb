@@ -32,8 +32,8 @@ module Microservice
       to_json
     end
 
-    def set_error( **options )
-      @error = { class: nil, message: nil, backtrace: nil }.merge( options )
+    def to_json
+      as_json.to_json
     end
 
     def as_json
@@ -46,21 +46,28 @@ module Microservice
       }
     end
 
-    def to_json
-      as_json.to_json
+    def with_error_handling( &block )
+      result = begin
+        yield
+      rescue => err
+        err
+      end
+      handle_error( result ) if StandardError === result
+      result
     end
 
-    private
-
-    def with_error_handling( &block )
-      yield
-    rescue => err
+    def handle_error( err )
       raise err unless @agent.wrap
       message   = err.is_a?( StandardError ) ? err.message : err.to_s
       backtrace = err.respond_to?( :backtrace ) ? err.backtrace : nil
       set_error( class: err.class.to_s, message: message , backtrace: backtrace )
-      err
     end
+
+    def set_error( **options )
+      @error = { class: nil, message: nil, backtrace: nil }.merge( options )
+    end
+
+    private
 
     def with_indifferent_access( hash )
       hash.dup.tap do |p|

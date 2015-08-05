@@ -1,3 +1,4 @@
+require 'base64'
 require 'sinatra/base' unless defined? Sinatra
 require 'rest_client'
 require 'activesupport/json_encoder'
