@@ -84,7 +84,7 @@ module Microservice
     def assemble_headers( headers = {} )
       base = ( encoding == :none ? {} : {'Content-Type' => "application/#{encoding}", 'Accept' => "application/#{encoding}"} )
       auth_headers = basic_auth? ? { 'Authorization' => "Basic #{Base64.encode64( "#{username}:#{password}" ).chomp}" } : {}
-      base.merge( headers.merge( auth_headers ) )
+      base.merge( headers ? headers.merge( auth_headers ) : {} )
     end
 
     def format( response )
