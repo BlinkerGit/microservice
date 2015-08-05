@@ -4,7 +4,6 @@ module Microservice
     attr_reader   :agent
     attr_reader   :error
     attr_reader   :last
-    attr_reader   :source
     attr_reader   :status
     attr_reader   :params
     attr_accessor :payload
@@ -15,7 +14,6 @@ module Microservice
       @status  = nil
       @payload = {}
       @agent   = agent
-      @source  = agent.source
       @params  = with_indifferent_access( params )
     end
 
@@ -26,21 +24,30 @@ module Microservice
         end
         @last, @status = @agent.last, @agent.last[:code]
         self.instance_exec( r, &block ) unless @error
-        self.to_json
+        render
       end
+    end
+
+    def render
+      to_json
     end
 
     def set_error( **options )
       @error = { class: nil, message: nil, backtrace: nil }.merge( options )
     end
 
-    def to_json
+    def as_json
       {
-        source:  source,
+        source:  agent.source,
+        version: agent.version,
         status:  status,
         error:   error,
         payload: payload.as_json,
-      }.to_json
+      }
+    end
+
+    def to_json
+      as_json.to_json
     end
 
     private

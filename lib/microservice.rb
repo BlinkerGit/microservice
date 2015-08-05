@@ -6,8 +6,8 @@ require 'envied'
 
 module Microservice
   class << self
-    def define( name, **options, &block )
-      Microservice::Dsl.new( name, options ).instance_eval( &block )
+    def define( name, version = nil, **options, &block )
+      Microservice::Dsl.new( name, version, options ).instance_eval( &block )
     end
     def start!
       Microservice::Server.run!

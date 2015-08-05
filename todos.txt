@@ -1,2 +1,3 @@
 Work on logging
 Write specs
+Allow return of received headers

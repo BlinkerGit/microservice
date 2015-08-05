@@ -9,6 +9,7 @@ module Microservice
     attr_accessor :wrap        # true, false
     attr_accessor :mode        # :rest (:soap not yet implemented)
     attr_accessor :source      # just a name
+    attr_accessor :version     # just a string
 
     attr_accessor :base_url
     attr_accessor :last
@@ -22,8 +23,9 @@ module Microservice
     attr_accessor :password
 
     def initialize( **options )
-      @base_url = options[ :url        ].to_s
       @source   = options[ :source     ].try(:to_s)   || ''
+      @version  = options[ :version    ].try(:to_s)   || ''
+      @base_url = options[ :url        ].try(:to_s)   or raise ArgumentError.new('No URL in configuration')
       @auth     = options[ :auth       ].try(:to_sym) || :none
       @encoding = options[ :encoding   ].try(:to_sym) || :none
       @mode     = options[ :mode       ].try(:to_sym) || :rest
