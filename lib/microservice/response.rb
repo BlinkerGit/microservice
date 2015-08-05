@@ -18,9 +18,9 @@ module Microservice
     end
 
     (Agent::VERBS_WITH_PARAMS + Agent::VERBS_WITHOUT_PARAMS).each do |v|
-      define_method v do |args = {}, headers = {}, &block|
+      define_method v do |args = {}, path: nil, headers: nil, &block|
         r = with_error_handling do
-          @agent.send v, args, headers
+          @agent.send v, args, path, headers
         end
         @last, @status = @agent.last, @agent.last[:code]
         self.instance_exec( r, &block ) unless @error

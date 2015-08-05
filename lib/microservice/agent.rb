@@ -41,16 +41,16 @@ module Microservice
     end
 
     (VERBS_WITH_PARAMS + VERBS_WITHOUT_PARAMS).each do |v|
-      define_method v do |args = {}, headers = {}|
-        format( fetch( v, args, headers ) )
+      define_method v do |args = {}, path = nil, headers = {}|
+        format( fetch( v, args, path, headers ) )
       end
     end
 
     private
 
-    def fetch( method, args = {}, headers = {} )
+    def fetch( method, args = {}, path = nil, headers = {} )
       last[ String === args ? :body : :params ] = args
-      last[ :url      ] = assemble_url( ( method == :get && Hash === args ) ? args : {} )
+      last[ :url      ] = assemble_url( path, ( method == :get && Hash === args ) ? args : {} )
       last[ :headers  ] = assemble_headers( headers )
       last[ :response ] = begin
         case method
@@ -65,9 +65,17 @@ module Microservice
       last[ :response ]
     end
 
-    def assemble_url( args = {} )
+    def assemble_url( path = nil, args = {} )
       result = base_url.dup
-      args   = args.merge({ auth_key => auth_token }) if token_auth?
+      if path
+        separators = [ path.to_s[0], result[-1] ].select{ |c| c == '/' }.count
+        result += case separators
+        when 2 then path.to_s[1..-1]
+        when 0 then "/#{path}"
+        else        path.to_s
+        end
+      end
+      args.merge!({ auth_key => auth_token }) if token_auth?
       result = "#{result}#{result.include?('?') ? '&' : '?'}#{URI.encode_www_form(args)}" if args.present?
       result.insert( result.index('://')+3, "#{ERB::Util.url_encode username}:#{ERB::Util.url_encode password}@" ) if url_auth?
       result
