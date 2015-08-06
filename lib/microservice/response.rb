@@ -18,7 +18,10 @@ module Microservice
     end
 
     (Agent::VERBS_WITH_PARAMS + Agent::VERBS_WITHOUT_PARAMS).each do |v|
-      define_method v do |args = {}, path: nil, headers: nil, &block|
+      define_method v do |args = {}, path: nil, headers: nil, **options, &block|
+        # Ruby can get confused over whether a hash argument is a single positional
+        # argument or a set of named arguments, thus:
+        args.merge!( options ) if args.is_a?( Hash ) && options && options.count > 0
         r = with_error_handling do
           @agent.send v, args, path, headers
         end
