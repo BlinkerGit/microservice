@@ -3,10 +3,12 @@ module Microservice
 
     VERBS_WITH_PARAMS    = %i(post put)
     VERBS_WITHOUT_PARAMS = %i(get head delete options)
+    EXCLUDE_FROM_LOG     = %i(headers response)
 
     attr_accessor :encoding    # :json, :xml, :none
     attr_accessor :auth        # :url_token, :url_auth, :basic, :none
     attr_accessor :wrap        # true, false
+    attr_accessor :log         # false, or path to file
     attr_accessor :mode        # :rest (:soap not yet implemented)
     attr_accessor :source      # just a name
     attr_accessor :version     # just a string
@@ -22,21 +24,22 @@ module Microservice
     attr_accessor :username
     attr_accessor :password
 
-    def initialize( **options )
-      @source   = options[ :source     ].try(:to_s)   || ''
-      @version  = options[ :version    ].try(:to_s)   || ''
-      @base_url = options[ :url        ].try(:to_s)   or raise ArgumentError.new('No URL in configuration')
-      @auth     = options[ :auth       ].try(:to_sym) || :none
-      @encoding = options[ :encoding   ].try(:to_sym) || :none
-      @mode     = options[ :mode       ].try(:to_sym) || :rest
+    def initialize( **opts )
+      @source   = opts[ :source     ].try(:to_s)   || ''
+      @version  = opts[ :version    ].try(:to_s)   || ''
+      @base_url = opts[ :url        ].try(:to_s)   or raise ArgumentError.new('No URL in configuration')
+      @auth     = opts[ :auth       ].try(:to_sym) || :none
+      @encoding = opts[ :encoding   ].try(:to_sym) || :none
+      @mode     = opts[ :mode       ].try(:to_sym) || :rest
       @last     = {}
-      @wrap     = !!options[ :wrap_errors  ]
+      @log      = prepare_log( opts[ :log ] )
+      @wrap     = !!opts[ :wrap_errors  ]
       if url_auth? || basic_auth?
-        @username   = options[ :username   ] || ''
-        @password   = options[ :password   ] || ''
+        @username   = opts[ :username   ] || ''
+        @password   = opts[ :password   ] || ''
       elsif token_auth?
-        @auth_key   = options[ :auth_key   ] || 'auth'
-        @auth_token = options[ :auth_token ] || ''
+        @auth_key   = opts[ :auth_key   ] || 'auth'
+        @auth_token = opts[ :auth_token ] || ''
       end
     end
 
@@ -47,6 +50,10 @@ module Microservice
     end
 
     private
+
+    def prepare_log( arg )
+      arg ? Logger.new( arg ).tap{ |l| l.level = Logger::DEBUG } : nil
+    end
 
     def fetch( method, args = {}, path = nil, headers = {} )
       last[ String === args ? :body : :params ] = args
@@ -62,6 +69,7 @@ module Microservice
         e
       end
       last[ :code     ] = last[ :response ].try( ::RestClient::Exception === last[ :response ] ? :http_code : :code )
+      @log and @log.info log_string
       last[ :response ]
     end
 
@@ -108,6 +116,10 @@ module Microservice
           symbolize_keys_deep! h[ks] if h[ks].kind_of?(Hash) || h[ks].kind_of?(Array)
         end
       end
+    end
+
+    def log_string
+      last.except( EXCLUDE_FROM_LOG ).inspect.gsub(/:(\w+)=\>/){"#{$1}: "}.gsub(/\A\{|\}\z/,'')
     end
 
     def token_auth?

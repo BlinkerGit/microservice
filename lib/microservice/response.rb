@@ -8,6 +8,8 @@ module Microservice
     attr_reader   :params
     attr_accessor :payload
 
+    delegate :log, to: :agent
+
     def initialize( agent, params )
       @error   = nil
       @last    = nil
